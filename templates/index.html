@@ -6,8 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mood Music Recommender</title>
 
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link type="text/css" href="{{ url_for('static', filename='/css/style.css') }}" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link type="text/css" href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" />
 </head>
 
 <body>
@@ -120,7 +120,7 @@
     // ── Start webcam ────────────────────────────────────────
     async function startCamera() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         videoEl.srcObject = stream;
         videoEl.onloadedmetadata = () => {
           videoWrapper.classList.remove('hidden');
