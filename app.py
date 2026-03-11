@@ -17,16 +17,13 @@ def process_frame_route():
     _, encoded = data['frame'].split(',', 1)
     image_bytes = base64.b64decode(encoded)
 
-    frame_bytes, emotion, songs_df = process_frame(image_bytes)
+    faces, emotion, songs_df = process_frame(image_bytes)
 
-    result = {
+    return jsonify({
+        'faces': faces,
         'emotion': emotion,
         'songs': songs_df.to_dict(orient='records'),
-    }
-    if frame_bytes:
-        result['frame'] = 'data:image/jpeg;base64,' + base64.b64encode(frame_bytes).decode()
-
-    return jsonify(result)
+    })
 
 
 @app.route('/t')
@@ -35,5 +32,6 @@ def gen_table():
 
 
 if __name__ == '__main__':
-    app.debug = True
-    app.run()
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)

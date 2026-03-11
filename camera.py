@@ -47,26 +47,33 @@ def music_rec():
 
 def process_frame(image_bytes):
     """Decode a JPEG frame sent from the browser, run face detection and
-    emotion classification, return (annotated_jpeg_bytes, emotion_str, songs_df).
+    emotion classification, return (faces list, emotion_str, songs_df).
+    faces is a list of dicts with keys x, y, w, h, emotion.
     """
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if img is None:
-        return None, emotion_dict[current_emotion_idx[0]], music_rec()
+        return [], emotion_dict[current_emotion_idx[0]], music_rec()
 
-    img = cv2.resize(img, (600, 500))
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    orig_h, orig_w = img.shape[:2]
+    img_resized = cv2.resize(img, (600, 500))
+    gray = cv2.cvtColor(img_resized, cv2.COLOR_BGR2GRAY)
     face_rects = face_cascade.detectMultiScale(gray, 1.1, 3, minSize=(30, 30))
 
+    faces = []
     for (x, y, w, h) in face_rects:
-        cv2.rectangle(img, (x, y - 50), (x + w, y + h + 10), (0, 255, 0), 2)
         roi_gray = gray[y:y + h, x:x + w]
         cropped = np.expand_dims(np.expand_dims(cv2.resize(roi_gray, (48, 48)), -1), 0)
         prediction = emotion_model.predict(cropped)
         maxindex = int(np.argmax(prediction))
         current_emotion_idx[0] = maxindex
-        cv2.putText(img, emotion_dict[maxindex], (x + 20, y - 60),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        # Return coords normalised to 0–1 so the client can scale to any video size
+        faces.append({
+            'x': round(x / 600, 4),
+            'y': round(y / 500, 4),
+            'w': round(w / 600, 4),
+            'h': round(h / 500, 4),
+            'emotion': emotion_dict[maxindex],
+        })
 
-    _, jpeg = cv2.imencode('.jpg', img)
-    return jpeg.tobytes(), emotion_dict[current_emotion_idx[0]], music_rec()
+    return faces, emotion_dict[current_emotion_idx[0]], music_rec()

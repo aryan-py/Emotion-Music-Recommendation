@@ -46,11 +46,12 @@
 
       <!-- Video wrapper (hidden until camera is ready) -->
       <div class="video-wrapper hidden" id="videoWrapper">
-        <!-- Hidden video used only for capturing frames -->
-        <video id="videoEl" autoplay playsinline muted style="display:none"></video>
+        <!-- Live video feed -->
+        <video id="videoEl" autoplay playsinline muted></video>
+        <!-- Canvas overlay: face rectangle drawn client-side from server coords -->
+        <canvas id="overlayCanvas"></canvas>
+        <!-- Hidden canvas used only for capturing frames to send to server -->
         <canvas id="captureCanvas" style="display:none"></canvas>
-        <!-- Annotated frame returned by server (shows face rectangle) -->
-        <img id="processedFrame" alt="Processed feed" />
         <div class="video-overlay">
           <div class="emotion-badge" id="emotionBadge">
             <span class="emotion-icon" id="emotionIcon">😐</span>
@@ -104,20 +105,21 @@
       Surprised: { icon: "😲", color: "#ff9800" },
     };
 
-    const videoEl        = document.getElementById('videoEl');
-    const canvas         = document.getElementById('captureCanvas');
-    const ctx            = canvas.getContext('2d');
-    const processedFrame = document.getElementById('processedFrame');
-    const videoWrapper   = document.getElementById('videoWrapper');
-    const cameraError    = document.getElementById('cameraError');
-    const statusChip     = document.getElementById('statusChip');
-    const statusText     = document.getElementById('statusText');
-    const emotionIcon    = document.getElementById('emotionIcon');
-    const emotionLabel   = document.getElementById('emotionLabel');
-    const emotionStat    = document.getElementById('emotionStat');
-    const songCount      = document.getElementById('songCount');
-    const songsList      = document.getElementById('songsList');
-    const refreshBtn     = document.getElementById('refreshBtn');
+    const videoEl      = document.getElementById('videoEl');
+    const overlayCanvas= document.getElementById('overlayCanvas');
+    const overlayCtx   = overlayCanvas.getContext('2d');
+    const captureCanvas= document.getElementById('captureCanvas');
+    const captureCtx   = captureCanvas.getContext('2d');
+    const videoWrapper = document.getElementById('videoWrapper');
+    const cameraError  = document.getElementById('cameraError');
+    const statusChip   = document.getElementById('statusChip');
+    const statusText   = document.getElementById('statusText');
+    const emotionIcon  = document.getElementById('emotionIcon');
+    const emotionLabel = document.getElementById('emotionLabel');
+    const emotionStat  = document.getElementById('emotionStat');
+    const songCount    = document.getElementById('songCount');
+    const songsList    = document.getElementById('songsList');
+    const refreshBtn   = document.getElementById('refreshBtn');
 
     let isSending = false;
 
@@ -127,12 +129,6 @@
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         videoEl.srcObject = stream;
         videoEl.onloadedmetadata = () => {
-          // Show a snapshot immediately while waiting for first server response
-          canvas.width  = videoEl.videoWidth  || 640;
-          canvas.height = videoEl.videoHeight || 480;
-          ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-          processedFrame.src = canvas.toDataURL('image/jpeg', 0.8);
-
           videoWrapper.classList.remove('hidden');
           statusText.textContent = 'Detecting...';
           statusChip.classList.add('active');
@@ -145,16 +141,49 @@
       }
     }
 
+    // ── Draw face boxes on overlay canvas ───────────────────
+    function drawFaces(faces) {
+      const vw = videoEl.videoWidth  || videoEl.clientWidth;
+      const vh = videoEl.videoHeight || videoEl.clientHeight;
+      overlayCanvas.width  = overlayCanvas.offsetWidth;
+      overlayCanvas.height = overlayCanvas.offsetHeight;
+      overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+      faces.forEach(face => {
+        const x = face.x * overlayCanvas.width;
+        const y = face.y * overlayCanvas.height;
+        const w = face.w * overlayCanvas.width;
+        const h = face.h * overlayCanvas.height;
+
+        // Face rectangle
+        overlayCtx.strokeStyle = '#0ccac4';
+        overlayCtx.lineWidth   = 2;
+        overlayCtx.strokeRect(x, y, w, h);
+
+        // Emotion label background
+        const label   = face.emotion;
+        const fontSize= Math.max(12, Math.round(overlayCanvas.width * 0.03));
+        overlayCtx.font = `600 ${fontSize}px Poppins, sans-serif`;
+        const textW = overlayCtx.measureText(label).width;
+        overlayCtx.fillStyle = '#0ccac4';
+        overlayCtx.fillRect(x - 1, y - fontSize - 8, textW + 12, fontSize + 10);
+
+        // Emotion label text
+        overlayCtx.fillStyle = '#000';
+        overlayCtx.fillText(label, x + 5, y - 4);
+      });
+    }
+
     // ── Capture & send frame ────────────────────────────────
     function captureAndSend() {
       if (isSending || videoEl.readyState < 2) return;
       isSending = true;
 
-      canvas.width  = videoEl.videoWidth  || 640;
-      canvas.height = videoEl.videoHeight || 480;
-      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+      captureCanvas.width  = videoEl.videoWidth  || 640;
+      captureCanvas.height = videoEl.videoHeight || 480;
+      captureCtx.drawImage(videoEl, 0, 0, captureCanvas.width, captureCanvas.height);
 
-      const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+      const dataURL = captureCanvas.toDataURL('image/jpeg', 0.8);
 
       fetch('/process_frame', {
         method: 'POST',
@@ -163,8 +192,7 @@
       })
         .then(r => r.json())
         .then(data => {
-          // Display the annotated frame with face detection rectangle
-          if (data.frame) processedFrame.src = data.frame;
+          drawFaces(data.faces || []);
           updateEmotion(data.emotion);
           renderSongs(data.songs);
         })
