@@ -56,7 +56,7 @@ def process_frame(image_bytes):
 
     img = cv2.resize(img, (600, 500))
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    face_rects = face_cascade.detectMultiScale(gray, 1.3, 5)
+    face_rects = face_cascade.detectMultiScale(gray, 1.1, 3, minSize=(30, 30))
 
     for (x, y, w, h) in face_rects:
         cv2.rectangle(img, (x, y - 50), (x + w, y + h + 10), (0, 255, 0), 2)

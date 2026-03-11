@@ -46,8 +46,11 @@
 
       <!-- Video wrapper (hidden until camera is ready) -->
       <div class="video-wrapper hidden" id="videoWrapper">
-        <video id="videoEl" autoplay playsinline muted></video>
+        <!-- Hidden video used only for capturing frames -->
+        <video id="videoEl" autoplay playsinline muted style="display:none"></video>
         <canvas id="captureCanvas" style="display:none"></canvas>
+        <!-- Annotated frame returned by server (shows face rectangle) -->
+        <img id="processedFrame" alt="Processed feed" />
         <div class="video-overlay">
           <div class="emotion-badge" id="emotionBadge">
             <span class="emotion-icon" id="emotionIcon">😐</span>
@@ -104,6 +107,7 @@
     const videoEl        = document.getElementById('videoEl');
     const canvas         = document.getElementById('captureCanvas');
     const ctx            = canvas.getContext('2d');
+    const processedFrame = document.getElementById('processedFrame');
     const videoWrapper   = document.getElementById('videoWrapper');
     const cameraError    = document.getElementById('cameraError');
     const statusChip     = document.getElementById('statusChip');
@@ -123,6 +127,12 @@
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         videoEl.srcObject = stream;
         videoEl.onloadedmetadata = () => {
+          // Show a snapshot immediately while waiting for first server response
+          canvas.width  = videoEl.videoWidth  || 640;
+          canvas.height = videoEl.videoHeight || 480;
+          ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+          processedFrame.src = canvas.toDataURL('image/jpeg', 0.8);
+
           videoWrapper.classList.remove('hidden');
           statusText.textContent = 'Detecting...';
           statusChip.classList.add('active');
@@ -153,6 +163,8 @@
       })
         .then(r => r.json())
         .then(data => {
+          // Display the annotated frame with face detection rectangle
+          if (data.frame) processedFrame.src = data.frame;
           updateEmotion(data.emotion);
           renderSongs(data.songs);
         })
