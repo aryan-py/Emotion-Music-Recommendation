@@ -1,0 +1,23 @@
+# Virtual environments
+venv/
+.venv/
+venv1/
+env/
+.env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Model weights (large binary)
+model.h5
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Claude Code internal
+CLAUDE.md
