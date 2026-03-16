@@ -3,6 +3,7 @@ import cv2
 import pandas as pd
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
+import spotify_service
 
 face_cascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 
@@ -40,8 +41,15 @@ current_emotion_idx = [4]
 
 
 def music_rec():
-    df = pd.read_csv(music_dist[current_emotion_idx[0]])
+    idx = current_emotion_idx[0]
+    spotify_df = spotify_service.get_songs(idx)
+    if spotify_df is not None:
+        return spotify_df
+    # Fallback: local CSV (no spotify_url column)
+    df = pd.read_csv(music_dist[idx])
     df = df[['Name', 'Album', 'Artist']]
+    df['spotify_url'] = ''
+    df['track_uri'] = ''
     return df.head(15)
 
 
@@ -55,7 +63,6 @@ def process_frame(image_bytes):
     if img is None:
         return [], emotion_dict[current_emotion_idx[0]], music_rec()
 
-    orig_h, orig_w = img.shape[:2]
     img_resized = cv2.resize(img, (600, 500))
     gray = cv2.cvtColor(img_resized, cv2.COLOR_BGR2GRAY)
     face_rects = face_cascade.detectMultiScale(gray, 1.1, 3, minSize=(30, 30))

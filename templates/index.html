@@ -4,9 +4,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mood Music Recommender</title>
-
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <title>MoodTunes</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/logo.svg') }}" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link type="text/css" href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" />
 </head>
 
@@ -14,20 +14,40 @@
 
   <header class="app-header">
     <div class="header-inner">
-      <div class="logo">
-        <span class="logo-icon">♪</span>
+      <a class="logo" href="/">
+        <img class="logo-icon" src="{{ url_for('static', filename='img/logo.svg') }}" alt="MoodTunes" width="34" height="34" />
         <span class="logo-text">MoodTunes</span>
-      </div>
-      <div class="header-badge">
-        <span class="pulse-dot"></span>
-        Live Detection
+      </a>
+      <!-- Tab bar lives in the header -->
+      <div class="tab-bar">
+        <button class="tab-btn active" data-mode="face">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+          </svg>
+          Face Scan
+        </button>
+        <button class="tab-btn" data-mode="voice">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="2" width="6" height="12" rx="3"/>
+            <path d="M5 10a7 7 0 0014 0M12 19v3M8 22h8"/>
+          </svg>
+          Voice Chat
+        </button>
+        <button class="tab-btn" data-mode="journal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+          </svg>
+          Journal
+        </button>
       </div>
     </div>
   </header>
 
-  <main class="app-main">
+  <!-- ═══════════════ FACE SCAN MODE ═══════════════ -->
+  <main class="app-main" id="face-mode">
 
-    <!-- Camera Column -->
     <section class="panel camera-panel">
       <div class="panel-header">
         <h2 class="panel-title">Emotion Detector</h2>
@@ -37,20 +57,15 @@
         </div>
       </div>
 
-      <!-- Camera permission error -->
       <div class="camera-error hidden" id="cameraError">
         <span>📷</span>
         <p>Camera access denied.</p>
         <small>Allow camera permission in your browser and refresh.</small>
       </div>
 
-      <!-- Video wrapper (hidden until camera is ready) -->
       <div class="video-wrapper hidden" id="videoWrapper">
-        <!-- Live video feed -->
         <video id="videoEl" autoplay playsinline muted></video>
-        <!-- Canvas overlay: face rectangle drawn client-side from server coords -->
         <canvas id="overlayCanvas"></canvas>
-        <!-- Hidden canvas used only for capturing frames to send to server -->
         <canvas id="captureCanvas" style="display:none"></canvas>
         <div class="video-overlay">
           <div class="emotion-badge" id="emotionBadge">
@@ -63,31 +78,224 @@
       <div class="camera-footer">
         <div class="stat-pill">
           <span class="stat-label">Songs found</span>
-          <span class="stat-value" id="songCount">—</span>
+          <span class="stat-value" id="faceSongCount">—</span>
         </div>
         <div class="stat-pill">
           <span class="stat-label">Detected emotion</span>
           <span class="stat-value" id="emotionStat">—</span>
         </div>
       </div>
+
+      <button class="scan-btn" id="scanBtn" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          <path d="M11 8v6M8 11h6"/>
+        </svg>
+        <span id="scanBtnText">Starting camera…</span>
+      </button>
     </section>
 
-    <!-- Songs Column -->
     <section class="panel songs-panel">
       <div class="panel-header">
         <h2 class="panel-title">Song Recommendations</h2>
-        <button class="refresh-btn" id="refreshBtn" title="Refresh now">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M23 4v6h-6M1 20v-6h6"/>
-            <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+      </div>
+      <div class="songs-list" id="faceSongsList">
+        <div class="empty-state">
+          <span>🎵</span>
+          <p>Press <strong>Scan</strong> to detect your mood</p>
+        </div>
+      </div>
+      <div class="playlist-banner hidden" id="facePlaylistBanner">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.516 17.318a.75.75 0 01-1.031.25c-2.824-1.725-6.376-2.115-10.564-1.16a.75.75 0 11-.334-1.463c4.583-1.047 8.515-.596 11.68 1.341a.75.75 0 01.249 1.032zm1.47-3.27a.937.937 0 01-1.287.308c-3.232-1.987-8.158-2.563-11.982-1.402a.937.937 0 01-.54-1.794c4.37-1.315 9.79-.678 13.501 1.6a.937.937 0 01.308 1.288zm.126-3.405C15.27 8.48 9.25 8.27 5.9 9.31a1.124 1.124 0 11-.652-2.152c3.894-1.18 10.378-.952 14.47 1.607a1.125 1.125 0 01-1.606 1.878z"/></svg>
+        <span>Playlist created!</span>
+        <a id="facePlaylistLink" href="#" target="_blank" rel="noopener noreferrer">Open in Spotify</a>
+      </div>
+      <button class="create-playlist-btn hidden" id="faceCreatePlaylistBtn">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.516 17.318a.75.75 0 01-1.031.25c-2.824-1.725-6.376-2.115-10.564-1.16a.75.75 0 11-.334-1.463c4.583-1.047 8.515-.596 11.68 1.341a.75.75 0 01.249 1.032zm1.47-3.27a.937.937 0 01-1.287.308c-3.232-1.987-8.158-2.563-11.982-1.402a.937.937 0 01-.54-1.794c4.37-1.315 9.79-.678 13.501 1.6a.937.937 0 01.308 1.288zm.126-3.405C15.27 8.48 9.25 8.27 5.9 9.31a1.124 1.124 0 11-.652-2.152c3.894-1.18 10.378-.952 14.47 1.607a1.125 1.125 0 01-1.606 1.878z"/></svg>
+        <span id="faceCreatePlaylistBtnText">Save as Spotify Playlist</span>
+      </button>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════ VOICE CHAT MODE ═══════════════ -->
+  <main class="app-main hidden" id="voice-mode">
+
+    <section class="panel voice-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Voice Mood Detector</h2>
+        <div class="status-chip" id="voiceStatusChip">
+          <span class="status-dot active"></span>
+          <span id="voiceStatusText">Ready</span>
+        </div>
+      </div>
+
+      <!-- Error banner -->
+      <div class="voice-error hidden" id="voiceError"></div>
+
+      <!-- Mic button -->
+      <div class="mic-container">
+        <button class="mic-btn" id="micBtn">
+          <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="2" width="6" height="12" rx="3"/>
+            <path d="M5 10a7 7 0 0014 0M12 19v3M8 22h8"/>
           </svg>
+          <svg class="mic-stop-icon hidden" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="4" y="4" width="16" height="16" rx="2"/>
+          </svg>
+        </button>
+        <p class="mic-label" id="micLabel">Hold to speak</p>
+      </div>
+
+      <!-- Transcript -->
+      <div class="transcript-box hidden" id="transcriptBox">
+        <p class="transcript-label">You said</p>
+        <p class="transcript-text" id="transcriptText"></p>
+      </div>
+
+      <!-- Detected emotion -->
+      <div class="voice-emotion-badge hidden" id="voiceEmotionBadge">
+        <span class="emotion-icon" id="voiceEmotionIcon">😐</span>
+        <span class="emotion-label" id="voiceEmotionLabel">Neutral</span>
+      </div>
+
+      <!-- Tips -->
+      <div class="tips-box hidden" id="tipsBox">
+        <h3 class="tips-title">Tips to feel better</h3>
+        <ul class="tips-list" id="tipsList"></ul>
+      </div>
+
+      <!-- Stat row -->
+      <div class="camera-footer" id="voiceFooter" style="display:none">
+        <div class="stat-pill">
+          <span class="stat-label">Songs found</span>
+          <span class="stat-value" id="voiceSongCount">—</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label">Detected emotion</span>
+          <span class="stat-value" id="voiceEmotionStat">—</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel songs-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Song Recommendations</h2>
+      </div>
+      <div class="songs-list" id="voiceSongsList">
+        <div class="empty-state">
+          <span>🎵</span>
+          <p>Speak your mood to get song recommendations</p>
+        </div>
+      </div>
+      <div class="playlist-banner hidden" id="voicePlaylistBanner">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.516 17.318a.75.75 0 01-1.031.25c-2.824-1.725-6.376-2.115-10.564-1.16a.75.75 0 11-.334-1.463c4.583-1.047 8.515-.596 11.68 1.341a.75.75 0 01.249 1.032zm1.47-3.27a.937.937 0 01-1.287.308c-3.232-1.987-8.158-2.563-11.982-1.402a.937.937 0 01-.54-1.794c4.37-1.315 9.79-.678 13.501 1.6a.937.937 0 01.308 1.288zm.126-3.405C15.27 8.48 9.25 8.27 5.9 9.31a1.124 1.124 0 11-.652-2.152c3.894-1.18 10.378-.952 14.47 1.607a1.125 1.125 0 01-1.606 1.878z"/></svg>
+        <span>Playlist created!</span>
+        <a id="voicePlaylistLink" href="#" target="_blank" rel="noopener noreferrer">Open in Spotify</a>
+      </div>
+      <button class="create-playlist-btn hidden" id="voiceCreatePlaylistBtn">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.516 17.318a.75.75 0 01-1.031.25c-2.824-1.725-6.376-2.115-10.564-1.16a.75.75 0 11-.334-1.463c4.583-1.047 8.515-.596 11.68 1.341a.75.75 0 01.249 1.032zm1.47-3.27a.937.937 0 01-1.287.308c-3.232-1.987-8.158-2.563-11.982-1.402a.937.937 0 01-.54-1.794c4.37-1.315 9.79-.678 13.501 1.6a.937.937 0 01.308 1.288zm.126-3.405C15.27 8.48 9.25 8.27 5.9 9.31a1.124 1.124 0 11-.652-2.152c3.894-1.18 10.378-.952 14.47 1.607a1.125 1.125 0 01-1.606 1.878z"/></svg>
+        <span id="voiceCreatePlaylistBtnText">Save as Spotify Playlist</span>
+      </button>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════ JOURNAL MODE ═══════════════ -->
+  <main class="app-main hidden" id="journal-mode">
+
+    <!-- Left: Editor -->
+    <section class="panel journal-editor-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Daily Journal</h2>
+        <span class="journal-date-badge" id="journalDateBadge"></span>
+      </div>
+
+      <!-- Mode toggle -->
+      <div class="journal-mode-toggle">
+        <button class="jmode-btn active" id="jmodeFree">Free Write</button>
+        <button class="jmode-btn" id="jmodeGuided">Guided</button>
+      </div>
+
+      <!-- Guided prompts (shown above textarea in guided mode) -->
+      <div class="journal-prompts hidden" id="journalPrompts">
+        <div class="prompt-item"><span class="prompt-icon">🌅</span><span>How are you feeling right now, and why?</span></div>
+        <div class="prompt-item"><span class="prompt-icon">📌</span><span>What happened today that stood out?</span></div>
+        <div class="prompt-item"><span class="prompt-icon">💭</span><span>What's been weighing on your mind?</span></div>
+        <div class="prompt-item"><span class="prompt-icon">🙏</span><span>One thing you're grateful for today:</span></div>
+        <div class="prompt-item"><span class="prompt-icon">🌙</span><span>What would make tomorrow better?</span></div>
+      </div>
+
+      <textarea
+        class="journal-textarea"
+        id="journalTextarea"
+        placeholder="Write about your day, your thoughts, your feelings…"
+        spellcheck="true"
+      ></textarea>
+
+      <div class="journal-footer">
+        <span class="journal-char-count" id="journalCharCount">0 characters</span>
+        <div class="journal-actions">
+          <button class="journal-clear-btn" id="journalClearBtn">Clear</button>
+          <button class="scan-btn journal-submit-btn" id="journalSubmitBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <span id="journalSubmitText">Analyse My Mood</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Result: emotion + response -->
+      <div class="journal-result hidden" id="journalResult">
+        <div class="journal-result-emotion">
+          <span class="emotion-icon" id="journalEmotionIcon">😐</span>
+          <div>
+            <div class="journal-result-label">Detected mood</div>
+            <div class="journal-result-emotion-name" id="journalEmotionName">Neutral</div>
+          </div>
+        </div>
+        <p class="journal-response-text" id="journalResponseText"></p>
+        <div class="tips-box" id="journalTipsBox">
+          <h3 class="tips-title">Tips for you</h3>
+          <ul class="tips-list" id="journalTipsList"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right: Songs + History -->
+    <section class="panel journal-right-panel">
+      <div class="panel-header">
+        <h2 class="panel-title" id="journalRightTitle">Songs for your mood</h2>
+        <div class="mini-tab-bar">
+          <button class="mini-tab active" id="jTabSongs">Songs</button>
+          <button class="mini-tab" id="jTabHistory">History</button>
+        </div>
+      </div>
+
+      <!-- Songs view -->
+      <div id="journalSongsView">
+        <div class="songs-list" id="journalSongsList">
+          <div class="empty-state">
+            <span>📓</span>
+            <p>Write in your journal to get song recommendations</p>
+          </div>
+        </div>
+        <div class="playlist-banner hidden" id="journalPlaylistBanner">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.516 17.318a.75.75 0 01-1.031.25c-2.824-1.725-6.376-2.115-10.564-1.16a.75.75 0 11-.334-1.463c4.583-1.047 8.515-.596 11.68 1.341a.75.75 0 01.249 1.032zm1.47-3.27a.937.937 0 01-1.287.308c-3.232-1.987-8.158-2.563-11.982-1.402a.937.937 0 01-.54-1.794c4.37-1.315 9.79-.678 13.501 1.6a.937.937 0 01.308 1.288zm.126-3.405C15.27 8.48 9.25 8.27 5.9 9.31a1.124 1.124 0 11-.652-2.152c3.894-1.18 10.378-.952 14.47 1.607a1.125 1.125 0 01-1.606 1.878z"/></svg>
+          <span>Playlist created!</span>
+          <a id="journalPlaylistLink" href="#" target="_blank" rel="noopener noreferrer">Open in Spotify</a>
+        </div>
+        <button class="create-playlist-btn hidden" id="journalCreatePlaylistBtn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.516 17.318a.75.75 0 01-1.031.25c-2.824-1.725-6.376-2.115-10.564-1.16a.75.75 0 11-.334-1.463c4.583-1.047 8.515-.596 11.68 1.341a.75.75 0 01.249 1.032zm1.47-3.27a.937.937 0 01-1.287.308c-3.232-1.987-8.158-2.563-11.982-1.402a.937.937 0 01-.54-1.794c4.37-1.315 9.79-.678 13.501 1.6a.937.937 0 01.308 1.288zm.126-3.405C15.27 8.48 9.25 8.27 5.9 9.31a1.124 1.124 0 11-.652-2.152c3.894-1.18 10.378-.952 14.47 1.607a1.125 1.125 0 01-1.606 1.878z"/></svg>
+          <span id="journalCreatePlaylistBtnText">Save as Spotify Playlist</span>
         </button>
       </div>
 
-      <div class="songs-list" id="songsList">
-        <div class="loading-state" id="loadingState">
-          <div class="spinner"></div>
-          <p>Waiting for camera...</p>
+      <!-- History view -->
+      <div id="journalHistoryView" class="hidden">
+        <div class="history-list" id="historyList">
+          <div class="empty-state"><span>📭</span><p>No journal entries yet</p></div>
         </div>
       </div>
     </section>
@@ -95,169 +303,590 @@
   </main>
 
   <script>
+    /* ── Shared emotion meta ────────────────────────────────── */
     const emotionMeta = {
       Angry:     { icon: "😠", color: "#ff4d4d" },
       Disgusted: { icon: "🤢", color: "#8bc34a" },
       Fearful:   { icon: "😨", color: "#9c27b0" },
       Happy:     { icon: "😄", color: "#ffc107" },
-      Neutral:   { icon: "😐", color: "#0ccac4" },
+      Neutral:   { icon: "😐", color: "#d4a853" },
       Sad:       { icon: "😢", color: "#2196f3" },
       Surprised: { icon: "😲", color: "#ff9800" },
     };
 
-    const videoEl      = document.getElementById('videoEl');
-    const overlayCanvas= document.getElementById('overlayCanvas');
-    const overlayCtx   = overlayCanvas.getContext('2d');
-    const captureCanvas= document.getElementById('captureCanvas');
-    const captureCtx   = captureCanvas.getContext('2d');
-    const videoWrapper = document.getElementById('videoWrapper');
-    const cameraError  = document.getElementById('cameraError');
-    const statusChip   = document.getElementById('statusChip');
-    const statusText   = document.getElementById('statusText');
-    const emotionIcon  = document.getElementById('emotionIcon');
-    const emotionLabel = document.getElementById('emotionLabel');
-    const emotionStat  = document.getElementById('emotionStat');
-    const songCount    = document.getElementById('songCount');
-    const songsList    = document.getElementById('songsList');
-    const refreshBtn   = document.getElementById('refreshBtn');
+    const SPOTIFY_SVG = `<svg class="spotify-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.516 17.318a.75.75 0 01-1.031.25c-2.824-1.725-6.376-2.115-10.564-1.16a.75.75 0 11-.334-1.463c4.583-1.047 8.515-.596 11.68 1.341a.75.75 0 01.249 1.032zm1.47-3.27a.937.937 0 01-1.287.308c-3.232-1.987-8.158-2.563-11.982-1.402a.937.937 0 01-.54-1.794c4.37-1.315 9.79-.678 13.501 1.6a.937.937 0 01.308 1.288zm.126-3.405C15.27 8.48 9.25 8.27 5.9 9.31a1.124 1.124 0 11-.652-2.152c3.894-1.18 10.378-.952 14.47 1.607a1.125 1.125 0 01-1.606 1.878z"/></svg>`;
 
-    let isSending = false;
+    function escapeHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
 
-    // ── Start webcam ────────────────────────────────────────
+    /* ── Song card renderer ─────────────────────────────────── */
+    function buildSongCards(data) {
+      let html = '';
+      data.forEach((song, i) => {
+        const name    = escapeHtml(song.Name   || '—');
+        const album   = escapeHtml(song.Album  || '—');
+        const artist  = escapeHtml(song.Artist || '—');
+        const url = song.spotify_url ||
+          `https://open.spotify.com/search/${encodeURIComponent((song.Name || '') + ' ' + (song.Artist || ''))}`;
+        const initials = (song.Artist || '♪').trim().split(' ')
+          .map(w => w[0]).join('').slice(0, 2).toUpperCase();
+        const tag   = 'a';
+        const attrs = `href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"`;
+        html += `
+          <${tag} class="song-card song-card--link" ${attrs} style="animation-delay:${i*25}ms">
+            <div class="song-avatar">${initials}</div>
+            <div class="song-info">
+              <div class="song-name">${name}</div>
+              <div class="song-meta">${artist} &middot; ${album}</div>
+            </div>
+            <div class="song-num">${SPOTIFY_SVG}${String(i+1).padStart(2,'0')}</div>
+          </${tag}>`;
+      });
+      return html;
+    }
+
+    /* ── Generic songs panel update ─────────────────────────── */
+    function updateSongsPanel(cfg, songs) {
+      cfg.banner.classList.add('hidden');
+      cfg.createBtnText.textContent = 'Save as Spotify Playlist';
+      if (!songs || songs.length === 0) {
+        cfg.list.innerHTML = '<div class="empty-state"><span>🎵</span><p>No songs found — try again!</p></div>';
+        cfg.createBtn.classList.add('hidden');
+        cfg.countEl.textContent = '—';
+        return;
+      }
+      cfg.countEl.textContent = songs.length;
+      cfg.list.innerHTML = buildSongCards(songs);
+      cfg.createBtn.classList.toggle('hidden', !songs.some(s => s.track_uri));
+    }
+
+    /* ── Generic create-playlist handler ────────────────────── */
+    function attachCreatePlaylist(cfg, getSongs, getEmotion) {
+      cfg.createBtn.addEventListener('click', () => {
+        const track_uris = getSongs().map(s => s.track_uri).filter(Boolean);
+        if (!track_uris.length) return;
+        cfg.createBtn.disabled = true;
+        cfg.createBtnText.textContent = 'Saving…';
+        fetch('/create_playlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emotion: getEmotion(), track_uris }),
+        })
+          .then(r => r.json())
+          .then(data => {
+            if (data.auth_url) { window.location.href = data.auth_url; return; }
+            if (data.playlist_url) {
+              cfg.bannerLink.href = data.playlist_url;
+              cfg.banner.classList.remove('hidden');
+              cfg.createBtnText.textContent = 'Saved!';
+            }
+          })
+          .catch(() => { cfg.createBtnText.textContent = 'Error — try again'; })
+          .finally(() => { cfg.createBtn.disabled = false; });
+      });
+    }
+
+    /* ════════════════════════════════════════════════════════
+       FACE SCAN MODE
+       ════════════════════════════════════════════════════════ */
+    const videoEl       = document.getElementById('videoEl');
+    const overlayCanvas = document.getElementById('overlayCanvas');
+    const overlayCtx    = overlayCanvas.getContext('2d');
+    const captureCanvas = document.getElementById('captureCanvas');
+    const captureCtx    = captureCanvas.getContext('2d');
+    const videoWrapper  = document.getElementById('videoWrapper');
+    const cameraError   = document.getElementById('cameraError');
+    const statusText    = document.getElementById('statusText');
+    const statusChip    = document.getElementById('statusChip');
+    const emotionIcon   = document.getElementById('emotionIcon');
+    const emotionLabel  = document.getElementById('emotionLabel');
+    const emotionStat   = document.getElementById('emotionStat');
+    const scanBtn       = document.getElementById('scanBtn');
+    const scanBtnText   = document.getElementById('scanBtnText');
+
+    const faceCfg = {
+      list:          document.getElementById('faceSongsList'),
+      countEl:       document.getElementById('faceSongCount'),
+      createBtn:     document.getElementById('faceCreatePlaylistBtn'),
+      createBtnText: document.getElementById('faceCreatePlaylistBtnText'),
+      banner:        document.getElementById('facePlaylistBanner'),
+      bannerLink:    document.getElementById('facePlaylistLink'),
+    };
+
+    let isSending    = false;
+    let faceSongs    = [];
+    let faceEmotion  = '';
+
+    // Check for post-OAuth redirect
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const url = params.get('playlist_url');
+      if (url) {
+        faceCfg.bannerLink.href = url;
+        faceCfg.banner.classList.remove('hidden');
+        window.history.replaceState({}, '', '/');
+      }
+    })();
+
+    attachCreatePlaylist(faceCfg, () => faceSongs, () => faceEmotion);
+
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         videoEl.srcObject = stream;
         videoEl.onloadedmetadata = () => {
           videoWrapper.classList.remove('hidden');
-          statusText.textContent = 'Detecting...';
+          statusText.textContent = 'Ready';
           statusChip.classList.add('active');
-          scheduleCapture();
+          scanBtn.disabled = false;
+          scanBtnText.textContent = 'Scan My Mood';
         };
       } catch (err) {
         cameraError.classList.remove('hidden');
         statusText.textContent = 'Camera error';
-        console.error('Camera error:', err);
+        scanBtnText.textContent = 'Camera unavailable';
       }
     }
 
-    // ── Draw face boxes on overlay canvas ───────────────────
     function drawFaces(faces) {
-      const vw = videoEl.videoWidth  || videoEl.clientWidth;
-      const vh = videoEl.videoHeight || videoEl.clientHeight;
       overlayCanvas.width  = overlayCanvas.offsetWidth;
       overlayCanvas.height = overlayCanvas.offsetHeight;
       overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-
       faces.forEach(face => {
         const x = face.x * overlayCanvas.width;
         const y = face.y * overlayCanvas.height;
         const w = face.w * overlayCanvas.width;
         const h = face.h * overlayCanvas.height;
-
-        // Face rectangle
-        overlayCtx.strokeStyle = '#0ccac4';
+        overlayCtx.strokeStyle = '#d4a853';
         overlayCtx.lineWidth   = 2;
         overlayCtx.strokeRect(x, y, w, h);
-
-        // Emotion label background
-        const label   = face.emotion;
-        const fontSize= Math.max(12, Math.round(overlayCanvas.width * 0.03));
+        const label    = face.emotion;
+        const fontSize = Math.max(12, Math.round(overlayCanvas.width * 0.03));
         overlayCtx.font = `600 ${fontSize}px Poppins, sans-serif`;
         const textW = overlayCtx.measureText(label).width;
-        overlayCtx.fillStyle = '#0ccac4';
+        overlayCtx.fillStyle = '#d4a853';
         overlayCtx.fillRect(x - 1, y - fontSize - 8, textW + 12, fontSize + 10);
-
-        // Emotion label text
-        overlayCtx.fillStyle = '#000';
+        overlayCtx.fillStyle = '#1a0f00';
         overlayCtx.fillText(label, x + 5, y - 4);
       });
     }
 
-    // ── Capture & send frame ────────────────────────────────
     function captureAndSend() {
       if (isSending || videoEl.readyState < 2) return;
       isSending = true;
+      scanBtn.disabled = true;
+      scanBtnText.textContent = 'Scanning…';
 
       captureCanvas.width  = videoEl.videoWidth  || 640;
       captureCanvas.height = videoEl.videoHeight || 480;
       captureCtx.drawImage(videoEl, 0, 0, captureCanvas.width, captureCanvas.height);
 
-      const dataURL = captureCanvas.toDataURL('image/jpeg', 0.8);
-
       fetch('/process_frame', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ frame: dataURL }),
+        body: JSON.stringify({ frame: captureCanvas.toDataURL('image/jpeg', 0.8) }),
       })
         .then(r => r.json())
         .then(data => {
           drawFaces(data.faces || []);
-          updateEmotion(data.emotion);
-          renderSongs(data.songs);
+          const meta = emotionMeta[data.emotion] || emotionMeta.Neutral;
+          emotionIcon.textContent  = meta.icon;
+          emotionLabel.textContent = data.emotion;
+          emotionStat.textContent  = data.emotion;
+          document.getElementById('emotionBadge').style.borderColor = meta.color + '55';
+          faceEmotion = data.emotion;
+          faceSongs   = data.songs || [];
+          updateSongsPanel(faceCfg, faceSongs);
         })
         .catch(err => console.error('Frame error:', err))
-        .finally(() => { isSending = false; });
+        .finally(() => {
+          isSending = false;
+          scanBtn.disabled = false;
+          scanBtnText.textContent = 'Scan Again';
+        });
     }
 
-    function scheduleCapture() {
-      setInterval(captureAndSend, 1500);
-    }
+    scanBtn.addEventListener('click', captureAndSend);
+    startCamera();
 
-    // ── Update emotion UI ────────────────────────────────────
-    function updateEmotion(emotion) {
-      const meta = emotionMeta[emotion] || emotionMeta.Neutral;
-      emotionIcon.textContent  = meta.icon;
-      emotionLabel.textContent = emotion;
-      emotionStat.textContent  = emotion;
-      document.getElementById('emotionBadge').style.borderColor = meta.color + '55';
-    }
+    /* ════════════════════════════════════════════════════════
+       VOICE CHAT MODE
+       ════════════════════════════════════════════════════════ */
+    const voiceError        = document.getElementById('voiceError');
+    const micBtn            = document.getElementById('micBtn');
+    const micLabel          = document.getElementById('micLabel');
+    const micIcon           = micBtn.querySelector('.mic-icon');
+    const micStopIcon       = micBtn.querySelector('.mic-stop-icon');
+    const transcriptBox     = document.getElementById('transcriptBox');
+    const transcriptText    = document.getElementById('transcriptText');
+    const voiceEmotionBadge = document.getElementById('voiceEmotionBadge');
+    const voiceEmotionIcon  = document.getElementById('voiceEmotionIcon');
+    const voiceEmotionLabel = document.getElementById('voiceEmotionLabel');
+    const voiceEmotionStat  = document.getElementById('voiceEmotionStat');
+    const voiceFooter       = document.getElementById('voiceFooter');
+    const tipsBox           = document.getElementById('tipsBox');
+    const tipsList          = document.getElementById('tipsList');
 
-    // ── Render song cards ────────────────────────────────────
-    function renderSongs(data) {
-      if (!data || data.length === 0) {
-        songsList.innerHTML = '<div class="empty-state"><span>🎵</span><p>No songs yet — smile at the camera!</p></div>';
-        return;
+    const voiceCfg = {
+      list:          document.getElementById('voiceSongsList'),
+      countEl:       document.getElementById('voiceSongCount'),
+      createBtn:     document.getElementById('voiceCreatePlaylistBtn'),
+      createBtnText: document.getElementById('voiceCreatePlaylistBtnText'),
+      banner:        document.getElementById('voicePlaylistBanner'),
+      bannerLink:    document.getElementById('voicePlaylistLink'),
+    };
+
+    let voiceSongs    = [];
+    let voiceEmotion  = '';
+    let isRecording   = false;
+    let mediaRecorder = null;
+    let audioChunks   = [];
+
+    attachCreatePlaylist(voiceCfg, () => voiceSongs, () => voiceEmotion);
+
+    function setMicState(state) {
+      micBtn.className = 'mic-btn mic-btn--' + state;
+      if (state === 'idle') {
+        micIcon.classList.remove('hidden');
+        micStopIcon.classList.add('hidden');
+        micLabel.textContent = 'Hold to speak';
+        micBtn.disabled = false;
+      } else if (state === 'recording') {
+        micIcon.classList.add('hidden');
+        micStopIcon.classList.remove('hidden');
+        micLabel.textContent = 'Recording… release to send';
+        micBtn.disabled = false;
+      } else {
+        micIcon.classList.remove('hidden');
+        micStopIcon.classList.add('hidden');
+        micLabel.textContent = 'Analysing…';
+        micBtn.disabled = true;
       }
-
-      songCount.textContent = data.length;
-
-      let html = '';
-      data.forEach(function(song, i) {
-        const name   = escapeHtml(song.Name   || '—');
-        const album  = escapeHtml(song.Album  || '—');
-        const artist = escapeHtml(song.Artist || '—');
-        const initials = (song.Artist || '♪').trim().split(' ')
-          .map(w => w[0]).join('').slice(0, 2).toUpperCase();
-
-        html += `
-          <div class="song-card" style="animation-delay:${i * 25}ms">
-            <div class="song-avatar">${initials}</div>
-            <div class="song-info">
-              <div class="song-name">${name}</div>
-              <div class="song-meta">${artist} &middot; ${album}</div>
-            </div>
-            <div class="song-num">${String(i + 1).padStart(2, '0')}</div>
-          </div>`;
-      });
-
-      songsList.innerHTML = html;
     }
 
-    function escapeHtml(str) {
-      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-                .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    async function startRecording() {
+      if (isRecording) return;
+      voiceError.classList.add('hidden');
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks   = [];
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+          stream.getTracks().forEach(t => t.stop());
+          const mimeType = mediaRecorder.mimeType || 'audio/webm';
+          const blob = new Blob(audioChunks, { type: mimeType });
+          if (blob.size < 1000) {
+            micLabel.textContent = 'Too short — hold longer and try again';
+            setMicState('idle');
+            return;
+          }
+          sendAudio(blob);
+        };
+        mediaRecorder.start();
+        isRecording = true;
+        setMicState('recording');
+      } catch (err) {
+        voiceError.textContent = err.name === 'NotAllowedError'
+          ? '⚠ Microphone access denied'
+          : '⚠ Could not access microphone';
+        voiceError.classList.remove('hidden');
+        setMicState('idle');
+      }
     }
 
-    // ── Manual refresh ───────────────────────────────────────
-    refreshBtn.addEventListener('click', () => {
-      refreshBtn.classList.add('spinning');
-      captureAndSend();
-      setTimeout(() => refreshBtn.classList.remove('spinning'), 600);
+    function stopRecording() {
+      if (!isRecording || !mediaRecorder) return;
+      isRecording = false;
+      mediaRecorder.stop();
+      setMicState('processing');
+    }
+
+    micBtn.addEventListener('mousedown',  (e) => { e.preventDefault(); startRecording(); });
+    micBtn.addEventListener('mouseup',    () => stopRecording());
+    micBtn.addEventListener('mouseleave', () => { if (isRecording) stopRecording(); });
+    micBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); }, { passive: false });
+    micBtn.addEventListener('touchend',   (e) => { e.preventDefault(); stopRecording(); },  { passive: false });
+
+    function sendAudio(blob) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        fetch('/voice_chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audio: reader.result }),
+        })
+          .then(r => r.json())
+          .then(data => {
+            console.log('[voice_chat] response:', data);
+            voiceError.classList.add('hidden');
+            if (data.error) {
+              voiceError.textContent = '⚠ ' + data.error;
+              voiceError.classList.remove('hidden');
+              setMicState('idle');
+              return;
+            }
+
+            transcriptText.textContent = data.transcript;
+            transcriptBox.classList.remove('hidden');
+
+            const meta = emotionMeta[data.emotion] || emotionMeta.Neutral;
+            voiceEmotionIcon.textContent  = meta.icon;
+            voiceEmotionLabel.textContent = data.emotion;
+            voiceEmotionBadge.style.borderColor = meta.color + '55';
+            voiceEmotionBadge.classList.remove('hidden');
+
+            tipsList.innerHTML = (data.tips || [])
+              .map(t => `<li>${escapeHtml(t)}</li>`).join('');
+            tipsBox.classList.remove('hidden');
+
+            voiceEmotionStat.textContent = data.emotion;
+            voiceFooter.style.display = 'flex';
+
+            voiceEmotion = data.emotion;
+            voiceSongs   = data.songs || [];
+            updateSongsPanel(voiceCfg, voiceSongs);
+
+            setMicState('idle');
+          })
+          .catch(err => {
+            console.error('[voice_chat] error:', err);
+            voiceError.textContent = '⚠ Network error — check the server is running';
+            voiceError.classList.remove('hidden');
+            setMicState('idle');
+          });
+      };
+      reader.readAsDataURL(blob);
+    }
+
+    setMicState('idle');
+
+    /* ════════════════════════════════════════════════════════
+       JOURNAL MODE
+       ════════════════════════════════════════════════════════ */
+    const journalTextarea      = document.getElementById('journalTextarea');
+    const journalCharCount     = document.getElementById('journalCharCount');
+    const journalSubmitBtn     = document.getElementById('journalSubmitBtn');
+    const journalSubmitText    = document.getElementById('journalSubmitText');
+    const journalClearBtn      = document.getElementById('journalClearBtn');
+    const journalResult        = document.getElementById('journalResult');
+    const journalEmotionIcon   = document.getElementById('journalEmotionIcon');
+    const journalEmotionName   = document.getElementById('journalEmotionName');
+    const journalResponseText  = document.getElementById('journalResponseText');
+    const journalTipsList      = document.getElementById('journalTipsList');
+    const journalPrompts       = document.getElementById('journalPrompts');
+    const journalDateBadge     = document.getElementById('journalDateBadge');
+    const jmodeFree            = document.getElementById('jmodeFree');
+    const jmodeGuided          = document.getElementById('jmodeGuided');
+    const jTabSongs            = document.getElementById('jTabSongs');
+    const jTabHistory          = document.getElementById('jTabHistory');
+    const journalSongsView     = document.getElementById('journalSongsView');
+    const journalHistoryView   = document.getElementById('journalHistoryView');
+    const journalRightTitle    = document.getElementById('journalRightTitle');
+
+    const journalCfg = {
+      list:          document.getElementById('journalSongsList'),
+      countEl:       document.createElement('span'), // unused placeholder
+      createBtn:     document.getElementById('journalCreatePlaylistBtn'),
+      createBtnText: document.getElementById('journalCreatePlaylistBtnText'),
+      banner:        document.getElementById('journalPlaylistBanner'),
+      bannerLink:    document.getElementById('journalPlaylistLink'),
+    };
+
+    let journalSongs   = [];
+    let journalEmotion = '';
+
+    attachCreatePlaylist(journalCfg, () => journalSongs, () => journalEmotion);
+
+    // Set today's date badge
+    journalDateBadge.textContent = new Date().toLocaleDateString('en-US',
+      { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+    const GUIDED_TEMPLATE =
+`🌅 How are you feeling right now, and why?
+→
+
+📌 What happened today that stood out?
+→
+
+💭 What's been weighing on your mind?
+→
+
+🙏 One thing you're grateful for today:
+→
+
+🌙 What would make tomorrow better?
+→ `;
+
+    // Mode toggle
+    jmodeFree.addEventListener('click', () => {
+      jmodeFree.classList.add('active');
+      jmodeGuided.classList.remove('active');
+      journalPrompts.classList.add('hidden');
+      journalTextarea.value = '';
+      journalTextarea.placeholder = 'Write about your day, your thoughts, your feelings…';
+      updateCharCount();
     });
 
-    // ── Boot ─────────────────────────────────────────────────
-    startCamera();
+    jmodeGuided.addEventListener('click', () => {
+      jmodeGuided.classList.add('active');
+      jmodeFree.classList.remove('active');
+      journalPrompts.classList.remove('hidden');
+      if (!journalTextarea.value.trim()) {
+        journalTextarea.value = GUIDED_TEMPLATE;
+      }
+      updateCharCount();
+    });
+
+    // Char count
+    function updateCharCount() {
+      const n = journalTextarea.value.length;
+      journalCharCount.textContent = `${n} character${n !== 1 ? 's' : ''}`;
+    }
+    journalTextarea.addEventListener('input', updateCharCount);
+
+    // Clear
+    journalClearBtn.addEventListener('click', () => {
+      journalTextarea.value = '';
+      updateCharCount();
+      journalResult.classList.add('hidden');
+    });
+
+    // Right panel tabs
+    jTabSongs.addEventListener('click', () => {
+      jTabSongs.classList.add('active');
+      jTabHistory.classList.remove('active');
+      journalSongsView.classList.remove('hidden');
+      journalHistoryView.classList.add('hidden');
+      journalRightTitle.textContent = 'Songs for your mood';
+    });
+
+    jTabHistory.addEventListener('click', () => {
+      jTabHistory.classList.add('active');
+      jTabSongs.classList.remove('active');
+      journalHistoryView.classList.remove('hidden');
+      journalSongsView.classList.add('hidden');
+      journalRightTitle.textContent = 'Journal History';
+      loadHistory();
+    });
+
+    // Submit
+    journalSubmitBtn.addEventListener('click', () => {
+      const text = journalTextarea.value.trim();
+      if (text.length < 20) {
+        journalResponseText.textContent = 'Write a bit more before analysing.';
+        journalResult.classList.remove('hidden');
+        return;
+      }
+      journalSubmitBtn.disabled = true;
+      journalSubmitText.textContent = 'Analysing…';
+
+      fetch('/journal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) {
+            journalResponseText.textContent = data.error;
+            journalResult.classList.remove('hidden');
+            return;
+          }
+
+          // Emotion
+          const meta = emotionMeta[data.emotion] || emotionMeta.Neutral;
+          journalEmotionIcon.textContent = meta.icon;
+          journalEmotionName.textContent = data.emotion;
+          journalEmotionName.style.color = meta.color;
+          journalResponseText.textContent = data.response || '';
+          journalResult.classList.remove('hidden');
+
+          // Tips
+          journalTipsList.innerHTML = (data.tips || [])
+            .map(t => `<li>${escapeHtml(t)}</li>`).join('');
+
+          // Songs
+          journalEmotion = data.emotion;
+          journalSongs   = data.songs || [];
+          updateSongsPanel(journalCfg, journalSongs);
+
+          // Switch to songs tab
+          jTabSongs.click();
+        })
+        .catch(err => {
+          console.error('[journal] error:', err);
+          journalResponseText.textContent = 'Something went wrong — try again.';
+          journalResult.classList.remove('hidden');
+        })
+        .finally(() => {
+          journalSubmitBtn.disabled = false;
+          journalSubmitText.textContent = 'Analyse My Mood';
+        });
+    });
+
+    // Load history
+    function loadHistory() {
+      const list = document.getElementById('historyList');
+      list.innerHTML = '<div class="empty-state"><span>⏳</span><p>Loading…</p></div>';
+      fetch('/journal/history')
+        .then(r => r.json())
+        .then(entries => {
+          if (!entries.length) {
+            list.innerHTML = '<div class="empty-state"><span>📭</span><p>No journal entries yet</p></div>';
+            return;
+          }
+          list.innerHTML = entries.map(e => {
+            const meta = emotionMeta[e.emotion] || emotionMeta.Neutral;
+            return `
+              <div class="history-card" data-id="${e.id}">
+                <div class="history-card-header">
+                  <span class="history-emotion-icon">${meta.icon}</span>
+                  <div class="history-card-meta">
+                    <span class="history-emotion-name" style="color:${meta.color}">${e.emotion}</span>
+                    <span class="history-date">${e.date}</span>
+                  </div>
+                  <button class="history-load-btn" onclick="loadHistorySongs(${JSON.stringify(e).replace(/"/g,'&quot;')})">Load Songs</button>
+                </div>
+                <p class="history-preview">${escapeHtml(e.preview)}${e.preview.length >= 120 ? '…' : ''}</p>
+              </div>`;
+          }).join('');
+        })
+        .catch(() => {
+          list.innerHTML = '<div class="empty-state"><span>⚠</span><p>Could not load history</p></div>';
+        });
+    }
+
+    window.loadHistorySongs = function(entry) {
+      journalEmotion = entry.emotion;
+      journalSongs   = entry.songs || [];
+      updateSongsPanel(journalCfg, journalSongs);
+
+      const meta = emotionMeta[entry.emotion] || emotionMeta.Neutral;
+      journalEmotionIcon.textContent = meta.icon;
+      journalEmotionName.textContent = entry.emotion;
+      journalEmotionName.style.color = meta.color;
+      journalResult.classList.remove('hidden');
+
+      jTabSongs.click();
+    };
+
+    /* ════════════════════════════════════════════════════════
+       TAB SWITCHING
+       ════════════════════════════════════════════════════════ */
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const mode = btn.dataset.mode;
+        document.getElementById('face-mode').classList.toggle('hidden', mode !== 'face');
+        document.getElementById('voice-mode').classList.toggle('hidden', mode !== 'voice');
+        document.getElementById('journal-mode').classList.toggle('hidden', mode !== 'journal');
+      });
+    });
+
   </script>
 
 </body>

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#d4a853"/>
+      <stop offset="100%" stop-color="#8b5510"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(255,240,180,0.22)"/>
+      <stop offset="100%" stop-color="rgba(255,240,180,0)"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect width="48" height="48" rx="12" fill="url(#bg)"/>
+  <!-- Inner shine overlay -->
+  <rect width="48" height="24" rx="12" fill="url(#shine)"/>
+
+  <!-- Music note — stem -->
+  <rect x="20" y="10" width="3" height="20" rx="1.5" fill="#1a0f00"/>
+  <!-- Music note — head (ellipse rotated) -->
+  <ellipse cx="17" cy="30" rx="6" ry="4.2" transform="rotate(-12 17 30)" fill="#1a0f00"/>
+  <!-- Music note — flag (two beams) -->
+  <path d="M23 10 Q35 13 31 21" stroke="#1a0f00" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M23 15 Q34 18 30 25" stroke="#1a0f00" stroke-width="2" stroke-linecap="round" fill="none"/>
+
+  <!-- Heart (mood symbol) — bottom right -->
+  <path d="M34 28.5 C34 26.6 32.3 25 30.3 25 C29.2 25 28.2 25.5 27.5 26.3 C26.8 25.5 25.8 25 24.7 25 C22.7 25 21 26.6 21 28.5 C21 30.2 21.8 31.5 27.5 36 C33.2 31.5 34 30.2 34 28.5Z" fill="#1a0f00" opacity="0.75"/>
+</svg>

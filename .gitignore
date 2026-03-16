@@ -3,6 +3,10 @@ venv/
 .venv/
 venv1/
 env/
+
+# Environment secrets — never commit
+.env
+.env.*
 .env/
 
 # Python cache
@@ -18,6 +22,10 @@ model.h5
 .vscode/
 .idea/
 .DS_Store
+
+# Runtime data
+journal_history.json
+.cache
 
 # Claude Code internal
 CLAUDE.md
